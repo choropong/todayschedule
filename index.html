@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>운호고 1-3 🐉</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0e1117; --card:#161b27; --card2:#1c2236; --border:#252d42;
+  --blue:#4f8cff; --cyan:#00d4ff; --gold:#ffd166; --text:#e8ecf5; --dim:#6b7a99;
+  --r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;}
+body::before{content:'';position:fixed;top:-150px;left:-150px;width:500px;height:500px;
+  background:radial-gradient(circle,rgba(79,140,255,.07) 0%,transparent 70%);
+  pointer-events:none;animation:drift 9s ease-in-out infinite alternate;}
+@keyframes drift{to{transform:translate(30px,30px);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.75)}}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;
+  padding:20px 20px 16px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:50;
+  background:rgba(14,17,23,.93);backdrop-filter:blur(14px);}
+.logo{display:flex;align-items:center;gap:10px;}
+.badge{background:linear-gradient(135deg,#2a4ccc,var(--blue));color:#fff;
+  font-family:'Space Mono',monospace;font-size:12px;font-weight:700;
+  padding:5px 11px;border-radius:8px;letter-spacing:1px;}
+.logo-name{font-size:19px;font-weight:900;}
+.logo-name span{color:var(--cyan);}
+#clock{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;letter-spacing:2px;text-align:right;}
+#date-str{font-size:11px;color:var(--dim);margin-top:2px;text-align:right;}
+
+/* NOW BAR */
+#now-bar{margin:14px 16px 0;padding:12px 18px;
+  background:linear-gradient(135deg,rgba(79,140,255,.12),rgba(0,212,255,.08));
+  border:1px solid rgba(79,140,255,.25);border-radius:var(--r);
+  display:flex;align-items:center;gap:12px;animation:fadeUp .4s ease;}
+.live-dot{width:9px;height:9px;border-radius:50%;background:var(--cyan);flex-shrink:0;
+  box-shadow:0 0 8px var(--cyan);animation:pulse 2s infinite;}
+.now-label{font-size:10px;color:var(--cyan);font-weight:700;letter-spacing:1px;}
+.now-subject{font-size:15px;font-weight:700;}
+.now-remain{margin-left:auto;font-family:'Space Mono',monospace;font-size:12px;color:var(--dim);}
+
+/* TABS */
+.tabs{display:flex;gap:2px;padding:16px 16px 0;}
+.tab{flex:1;padding:10px 4px;text-align:center;background:transparent;border:none;
+  border-radius:10px 10px 0 0;color:var(--dim);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
+.tab.on{background:var(--card);color:var(--text);border:1px solid var(--border);border-bottom:none;}
+.tab:hover:not(.on){color:var(--text);background:rgba(255,255,255,.04);}
+
+/* CONTENT WRAP */
+.wrap{margin:0 16px 24px;background:var(--card);border:1px solid var(--border);
+  border-radius:0 var(--r) var(--r) var(--r);padding:20px;}
+.panel{display:none;animation:fadeUp .3s ease;}
+.panel.on{display:block;}
+
+/* ── CALENDAR UI ── */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cal-title{font-size:16px;font-weight:900;}
+.cal-nav{display:flex;gap:6px;align-items:center;}
+.cal-nav button{background:var(--card2);border:1px solid var(--border);color:var(--text);
+  width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;
+  transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.cal-nav button:hover{background:var(--border);}
+.today-btn{background:var(--card2)!important;border:1px solid var(--border)!important;
+  color:var(--cyan)!important;font-size:11px!important;font-weight:700!important;
+  width:auto!important;padding:0 10px!important;font-family:'Noto Sans KR',sans-serif;}
+
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:20px;}
+.cal-dow{text-align:center;font-size:10px;font-weight:700;color:var(--dim);
+  padding:4px 0 8px;letter-spacing:.5px;}
+.cal-dow.sun{color:#ff6b6b;} .cal-dow.sat{color:var(--blue);}
+.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;border-radius:9px;cursor:pointer;
+  font-size:13px;font-weight:500;transition:all .2s;
+  border:1px solid transparent;position:relative;}
+.cal-day:hover:not(.empty){background:var(--card2);border-color:var(--border);}
+.cal-day.other-month{color:var(--dim);opacity:.4;}
+.cal-day.today{border-color:var(--cyan)!important;color:var(--cyan);font-weight:700;}
+.cal-day.selected{background:linear-gradient(135deg,#1d3799,var(--blue));
+  color:#fff;border-color:var(--blue)!important;font-weight:700;}
+.cal-day.selected.today{background:linear-gradient(135deg,#006070,var(--cyan));border-color:var(--cyan)!important;}
+.cal-day.sun-col{color:#ff6b6b;}
+.cal-day.sat-col{color:var(--blue);}
+.cal-day.selected.sun-col,.cal-day.selected.sat-col{color:#fff;}
+.cal-day.has-data::after{content:'';position:absolute;bottom:3px;
+  width:4px;height:4px;border-radius:50%;background:var(--cyan);opacity:.7;}
+.cal-day.empty{cursor:default;}
+.cal-week-label{font-size:10px;color:var(--dim);margin-bottom:10px;font-weight:700;letter-spacing:.5px;}
+
+/* 시간표 */
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.sec-title{font-size:16px;font-weight:900;}
+.edit-btn{background:var(--card2);border:1px solid var(--border);color:var(--dim);
+  padding:5px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;
+  transition:all .15s;font-family:'Noto Sans KR',sans-serif;}
+.edit-btn:hover{background:var(--border);color:var(--text);}
+
+.cl-list{display:flex;flex-direction:column;gap:7px;}
+.cl{display:flex;align-items:center;gap:12px;padding:13px 15px;
+  background:var(--card2);border:1px solid var(--border);
+  border-radius:12px;transition:all .2s;position:relative;overflow:hidden;}
+.cl::before{content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--border);border-radius:3px 0 0 3px;}
+.cl.now{border-color:rgba(79,140,255,.4);background:rgba(79,140,255,.08);}
+.cl.now::before{background:linear-gradient(to bottom,var(--blue),var(--cyan));}
+.cl.done{opacity:.38;}
+.cl-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--dim);min-width:14px;}
+.cl-name{font-size:15px;font-weight:700;flex:1;}
+.cl-time{font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);}
+.now-tag{font-size:9px;padding:2px 7px;border-radius:20px;font-weight:700;
+  background:rgba(79,140,255,.2);color:var(--blue);border:1px solid rgba(79,140,255,.35);}
+.cl-loading,.cl-empty{text-align:center;padding:32px;color:var(--dim);font-size:14px;}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--blue);
+  border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
+
+/* 급식 */
+.meal-card{background:var(--card2);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px;margin-bottom:10px;}
+.meal-tag{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--dim);
+  text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.meal-tag::after{content:'';flex:1;height:1px;background:var(--border);}
+.meal-grid{display:flex;flex-wrap:wrap;gap:7px;}
+.meal-item{background:rgba(255,255,255,.05);border:1px solid var(--border);
+  border-radius:8px;padding:5px 11px;font-size:13px;font-weight:500;
+  transition:all .15s;cursor:default;}
+.meal-item:hover{background:rgba(79,140,255,.1);border-color:var(--blue);}
+.kcal{margin-top:12px;font-size:11px;color:var(--dim);font-family:'Space Mono',monospace;}
+.meal-loading{text-align:center;padding:36px;color:var(--dim);}
+.meal-empty{text-align:center;padding:30px;color:var(--dim);font-size:18px;line-height:2;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;
+  display:none;align-items:center;justify-content:center;padding:20px;}
+.overlay.on{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:26px;width:100%;max-width:460px;max-height:85vh;overflow-y:auto;
+  animation:fadeUp .25s ease;}
+.modal h3{font-size:17px;font-weight:900;margin-bottom:14px;}
+.modal p{font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:14px;}
+.modal textarea{width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:12px;color:var(--text);
+  font-family:'Space Mono',monospace;font-size:11px;line-height:1.9;
+  resize:vertical;min-height:190px;outline:none;transition:border-color .15s;}
+.modal textarea:focus{border-color:var(--blue);}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.btn-c{background:transparent;border:1px solid var(--border);color:var(--dim);
+  padding:9px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+.btn-c:hover{background:var(--card2);}
+.btn-s{background:linear-gradient(135deg,#1d3799,var(--blue));border:none;color:#fff;
+  padding:9px 18px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;transition:opacity .15s;}
+.btn-s:hover{opacity:.85;}
+
+@media(max-width:480px){
+  header{padding:14px;}
+  #clock{font-size:17px;}
+  .wrap{margin:0 10px 20px;padding:14px;}
+  .tabs{padding:14px 10px 0;}
+  #now-bar{margin:12px 10px 0;}
+  .cal-day{font-size:12px;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="badge">1-3</div>
+    <div class="logo-name">운호고 <span>🐉</span></div>
+  </div>
+  <div>
+    <div id="clock">--:--:--</div>
+    <div id="date-str"></div>
+  </div>
+</header>
+
+<!-- NOW BAR -->
+<div id="now-bar">
+  <div class="live-dot"></div>
+  <div>
+    <div class="now-label">NOW</div>
+    <div class="now-subject" id="now-subj">불러오는 중...</div>
+  </div>
+  <div class="now-remain" id="now-remain"></div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab on" onclick="goTab('tt',this)">📅 시간표</button>
+  <button class="tab" onclick="goTab('meal',this)">🍱 급식</button>
+</div>
+
+<div class="wrap">
+
+  <!-- 시간표 패널 -->
+  <div class="panel on" id="p-tt">
+    <div class="sec-head" style="margin-bottom:16px;">
+      <div class="sec-title" id="tt-week-label">이번 주</div>
+      <div style="display:flex;gap:6px;">
+        <button class="edit-btn" onclick="openModal()">✏️ 직접 입력</button>
+      </div>
+    </div>
+    <!-- 캘린더 (시간표) -->
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button onclick="ttMoveWeek(-1)">‹‹</button>
+        <button onclick="ttMoveWeek(-1)" style="font-size:11px;width:auto;padding:0 8px;font-family:'Noto Sans KR',sans-serif;">이전 주</button>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--dim);" id="tt-month-label"></div>
+      <div class="cal-nav">
+        <button onclick="ttMoveWeek(1)" style="font-size:11px;width:auto;padding:0 8px;font-family:'Noto Sans KR',sans-serif;">다음 주</button>
+        <button onclick="ttGoToday()" class="today-btn">오늘</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="tt-cal"></div>
+    <div class="cl-list" id="cl-list"></div>
+  </div>
+
+  <!-- 급식 패널 -->
+  <div class="panel" id="p-meal">
+    <!-- 캘린더 (급식) -->
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button onclick="mealMoveMonth(-1)">‹</button>
+      </div>
+      <div class="cal-title" id="meal-month-label"></div>
+      <div class="cal-nav">
+        <button onclick="mealMoveMonth(1)">›</button>
+        <button onclick="mealGoToday()" class="today-btn">오늘</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="meal-cal"></div>
+    <div id="meal-body"></div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>✏️ 시간표 직접 입력</h3>
+    <p>나이스에서 불러오지 못할 경우 직접 입력하세요.<br>
+    형식: <b style="color:var(--blue)">요일,1교시,2교시,3교시,4교시,5교시,6교시,7교시</b><br>
+    예) 월,국어,수학,영어,과학,체육,음악,미술</p>
+    <textarea id="tt-input" spellcheck="false"></textarea>
+    <div class="modal-foot">
+      <button class="btn-c" onclick="closeModal()">취소</button>
+      <button class="btn-s" onclick="saveModal()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 상수 ──────────────────────────────────────────────────────────
+const API_KEY  = '5cd5052a022e4416b29cbbe1099b7f3d';
+const EDU_CODE = 'M10';
+const SCH_CODE = '8000091';  // 운호고등학교
+const GRADE    = '1';
+const CLASS_NM = '3';
+
+const TIMES = [
+  ['08:40','09:30'],
+  ['09:40','10:30'],
+  ['10:40','11:30'],
+  ['11:40','12:30'],
+  ['13:40','14:30'],
+  ['14:40','15:30'],
+  ['15:40','16:30'],
+];
+const LUNCH = ['12:30','13:40'];
+const DAYS    = ['월','화','수','목','금'];
+const KR_DAYS = ['일','월','화','수','목','금','토'];
+const DOW_LABELS = ['일','월','화','수','목','금','토'];
+
+// ── 상태 ──────────────────────────────────────────────────────────
+const today   = new Date();
+let selDate   = new Date(today); // 선택된 날짜
+let ttBaseMonday = getMonday(today); // 시간표 기준 주
+let mealViewDate = new Date(today); // 급식 캘린더 기준 월
+let ttCache   = {};
+let localTT   = JSON.parse(localStorage.getItem('tt13') || 'null');
+
+// ── 유틸 ──────────────────────────────────────────────────────────
+function fmt(d){ return `${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}`; }
+function p2(n){ return String(n).padStart(2,'0'); }
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function getMonday(d){
+  const t=new Date(d); const day=t.getDay();
+  t.setDate(t.getDate()+(day===0?-6:1-day)); t.setHours(0,0,0,0); return t;
+}
+function addDays(d,n){ const t=new Date(d); t.setDate(t.getDate()+n); return t; }
+function hhmm(str){ const [h,m]=str.split(':').map(Number); return h*60+m; }
+
+// ── 시계 ──────────────────────────────────────────────────────────
+function tickClock(){
+  const n=new Date();
+  document.getElementById('clock').textContent=`${p2(n.getHours())}:${p2(n.getMinutes())}:${p2(n.getSeconds())}`;
+  document.getElementById('date-str').textContent=`${n.getFullYear()}.${p2(n.getMonth()+1)}.${p2(n.getDate())} (${KR_DAYS[n.getDay()]})`;
+  updateNowBar();
+}
+setInterval(tickClock,1000); tickClock();
+
+// ── NOW BAR ───────────────────────────────────────────────────────
+function updateNowBar(){
+  const n=new Date(); const hm=n.getHours()*60+n.getMinutes(); const wd=n.getDay();
+  const subj=document.getElementById('now-subj'); const rem=document.getElementById('now-remain');
+  if(wd<1||wd>5){ subj.textContent='주말엔 학교 없음 ☕'; rem.textContent=''; return; }
+  const subjects=getTTForDate(today);
+  // 점심
+  if(hm>=hhmm(LUNCH[0])&&hm<hhmm(LUNCH[1])){
+    subj.textContent='🍚 점심시간'; rem.textContent=`${hhmm(LUNCH[1])-hm}분 남음`; return;
+  }
+  for(let i=0;i<TIMES.length;i++){
+    const s=hhmm(TIMES[i][0]),e=hhmm(TIMES[i][1]);
+    if(hm>=s&&hm<e){ subj.textContent=`${i+1}교시 · ${subjects[i]||'?'}`; rem.textContent=`${e-hm}분 남음`; return; }
+    if(i<TIMES.length-1){
+      const ns=hhmm(TIMES[i+1][0]);
+      if(hm>=e&&hm<ns){ subj.textContent=`🔔 쉬는 시간 (${i+1}→${i+2}교시)`; rem.textContent=`${ns-hm}분 후 수업`; return; }
+    }
+  }
+  subj.textContent = hm<hhmm(TIMES[0][0])?'등교 전 ☀️':'하교 🎒'; rem.textContent='';
+}
+
+// ── 탭 ───────────────────────────────────────────────────────────
+function goTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('p-'+id).classList.add('on');
+}
+
+// ── 시간표 캘린더 (주 단위) ───────────────────────────────────────
+function renderTTCal(){
+  const cal=document.getElementById('tt-cal');
+  cal.innerHTML='';
+  // 요일 헤더
+  ['일','월','화','수','목','금','토'].forEach((d,i)=>{
+    const h=document.createElement('div');
+    h.className='cal-dow'+(i===0?' sun':i===6?' sat':'');
+    h.textContent=d; cal.appendChild(h);
+  });
+  // 주의 월~금 (일~토 한 줄)
+  const mon=ttBaseMonday;
+  const weekStart=addDays(mon,-1); // 일요일
+  // 월 라벨
+  const mLabel=`${mon.getFullYear()}년 ${mon.getMonth()+1}월`;
+  document.getElementById('tt-month-label').textContent=mLabel;
+  // 이번 주 라벨
+  const fri=addDays(mon,4);
+  document.getElementById('tt-week-label').textContent=
+    `${mon.getMonth()+1}/${mon.getDate()} ~ ${fri.getMonth()+1}/${fri.getDate()} 주`;
+
+  for(let i=0;i<7;i++){
+    const d=addDays(weekStart,i);
+    const wd=d.getDay();
+    const isToday=sameDay(d,today);
+    const isSel=sameDay(d,selDate);
+    const isWeekend=wd===0||wd===6;
+    const div=document.createElement('div');
+    let cls='cal-day';
+    if(wd===0) cls+=' sun-col';
+    if(wd===6) cls+=' sat-col';
+    if(isToday) cls+=' today';
+    if(isSel) cls+=' selected';
+    if(isWeekend) cls+=' other-month';
+    div.className=cls;
+    div.textContent=d.getDate();
+    if(!isWeekend){
+      div.onclick=()=>{ selDate=new Date(d); renderTTCal(); renderClasses(); };
+    }
+    cal.appendChild(div);
+  }
+}
+
+function ttMoveWeek(n){
+  ttBaseMonday=addDays(ttBaseMonday,n*7);
+  // 선택일도 같이 이동
+  selDate=addDays(selDate,n*7);
+  // 주말이면 월요일로
+  const wd=selDate.getDay();
+  if(wd===0) selDate=addDays(selDate,1);
+  if(wd===6) selDate=addDays(selDate,-1);
+  renderTTCal(); fetchTTWeek(); renderClasses();
+}
+
+function ttGoToday(){
+  selDate=new Date(today);
+  ttBaseMonday=getMonday(today);
+  renderTTCal(); fetchTTWeek(); renderClasses();
+}
+
+// ── 급식 캘린더 (월 단위) ─────────────────────────────────────────
+function renderMealCal(){
+  const cal=document.getElementById('meal-cal');
+  cal.innerHTML='';
+  const y=mealViewDate.getFullYear(), m=mealViewDate.getMonth();
+  document.getElementById('meal-month-label').textContent=`${y}년 ${m+1}월`;
+
+  // 요일 헤더
+  ['일','월','화','수','목','금','토'].forEach((d,i)=>{
+    const h=document.createElement('div');
+    h.className='cal-dow'+(i===0?' sun':i===6?' sat':'');
+    h.textContent=d; cal.appendChild(h);
+  });
+
+  const firstDay=new Date(y,m,1).getDay();
+  const lastDate=new Date(y,m+1,0).getDate();
+  const prevLast=new Date(y,m,0).getDate();
+
+  // 이전 달 빈칸
+  for(let i=0;i<firstDay;i++){
+    const div=document.createElement('div');
+    div.className='cal-day other-month';
+    div.textContent=prevLast-firstDay+1+i;
+    cal.appendChild(div);
+  }
+
+  // 이번 달
+  for(let d=1;d<=lastDate;d++){
+    const date=new Date(y,m,d);
+    const wd=date.getDay();
+    const isToday=sameDay(date,today);
+    const isSel=sameDay(date,selDate);
+    const isWeekend=wd===0||wd===6;
+    const div=document.createElement('div');
+    let cls='cal-day';
+    if(wd===0) cls+=' sun-col';
+    if(wd===6) cls+=' sat-col';
+    if(isToday) cls+=' today';
+    if(isSel) cls+=' selected';
+    div.className=cls;
+    div.textContent=d;
+    if(!isWeekend){
+      div.onclick=()=>{ selDate=new Date(date); renderMealCal(); renderMeal(); };
+    } else {
+      div.style.cursor='default';
+    }
+    cal.appendChild(div);
+  }
+
+  // 다음 달 빈칸
+  const total=firstDay+lastDate;
+  const remain=(7-total%7)%7;
+  for(let i=1;i<=remain;i++){
+    const div=document.createElement('div');
+    div.className='cal-day other-month';
+    div.textContent=i;
+    cal.appendChild(div);
+  }
+}
+
+function mealMoveMonth(n){
+  mealViewDate=new Date(mealViewDate.getFullYear(), mealViewDate.getMonth()+n, 1);
+  renderMealCal();
+}
+function mealGoToday(){
+  selDate=new Date(today);
+  mealViewDate=new Date(today);
+  renderMealCal(); renderMeal();
+}
+
+// ── 시간표 데이터 ─────────────────────────────────────────────────
+function getTTForDate(d){
+  const wd=d.getDay();
+  if(wd<1||wd>5) return Array(7).fill('');
+  const dayKey=DAYS[wd-1];
+  if(localTT&&localTT[dayKey]) return localTT[dayKey];
+  const key=fmt(d);
+  if(ttCache[key]){
+    const arr=Array(7).fill('');
+    ttCache[key].forEach(r=>{ const p=parseInt(r.PERIO)-1; if(p>=0&&p<7) arr[p]=r.ITRT_CNTNT; });
+    return arr;
+  }
+  return Array(7).fill('');
+}
+
+async function fetchTTWeek(){
+  const mon=ttBaseMonday;
+  await Promise.all([...Array(5)].map((_,i)=>{
+    const d=addDays(mon,i); const key=fmt(d);
+    if(ttCache[key]) return;
+    const url=`https://open.neis.go.kr/hub/hisTimetable?KEY=${API_KEY}&Type=json&ATPT_OFCDC_SC_CODE=${EDU_CODE}&SD_SCHUL_CODE=${SCH_CODE}&ALL_TI_YMD=${key}&GRADE=${GRADE}&CLASS_NM=${CLASS_NM}`;
+    return fetch(url).then(r=>r.json()).then(data=>{
+      ttCache[key]=data.hisTimetable?.[1]?.row||[];
+    }).catch(()=>{ ttCache[key]=[]; });
+  }));
+  renderClasses();
+}
+
+function renderClasses(){
+  const list=document.getElementById('cl-list');
+  const wd=selDate.getDay();
+  if(wd<1||wd>5){
+    list.innerHTML=`<div class="cl-empty">📅 주말은 수업 없음</div>`; return;
+  }
+  const subjects=getTTForDate(selDate);
+  const isToday=sameDay(selDate,today);
+  const n=new Date(); const hm=n.getHours()*60+n.getMinutes();
+
+  if(subjects.every(s=>!s)){
+    list.innerHTML=`<div class="cl-loading"><div class="spinner"></div>나이스에서 불러오는 중...<br><small style="font-size:11px;display:block;margin-top:6px">없으면 '직접 입력' 버튼으로 추가하세요</small></div>`;
+    return;
+  }
+
+  list.innerHTML='';
+  subjects.forEach((sub,i)=>{
+    const s=hhmm(TIMES[i][0]), e=hhmm(TIMES[i][1]);
+    const isNow=isToday&&hm>=s&&hm<e;
+    const isDone=isToday&&hm>=e;
+    const div=document.createElement('div');
+    div.className='cl'+(isNow?' now':isDone?' done':'');
+    div.innerHTML=`
+      <span class="cl-num">${i+1}</span>
+      <span class="cl-name">${sub||'—'}</span>
+      ${isNow?'<span class="now-tag">수업 중</span>':''}
+      <span class="cl-time">${TIMES[i][0]}~${TIMES[i][1]}</span>`;
+    list.appendChild(div);
+  });
+}
+
+// ── 급식 ─────────────────────────────────────────────────────────
+async function renderMeal(){
+  const body=document.getElementById('meal-body');
+  const wd=selDate.getDay();
+  if(wd===0||wd===6){
+    body.innerHTML=`<div class="meal-empty">🙅 주말은 급식 없음</div>`; return;
+  }
+  body.innerHTML=`<div class="meal-loading"><div class="spinner"></div>급식 불러오는 중...</div>`;
+  try{
+    const ds=fmt(selDate);
+    const url=`https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=${API_KEY}&Type=json&ATPT_OFCDC_SC_CODE=${EDU_CODE}&SD_SCHUL_CODE=${SCH_CODE}&MLSV_YMD=${ds}`;
+    const data=await fetch(url).then(r=>r.json());
+    const row=data.mealServiceDietInfo?.[1]?.row?.[0];
+    if(!row){ body.innerHTML=`<div class="meal-empty">😢 ${selDate.getMonth()+1}/${selDate.getDate()} 급식 정보 없음</div>`; return; }
+    const items=row.DDISH_NM.split('<br/>').map(m=>m.replace(/\([0-9.,]+\)/g,'').trim()).filter(Boolean);
+    body.innerHTML=`<div class="meal-card">
+      <div class="meal-tag">🍱 ${selDate.getMonth()+1}월 ${selDate.getDate()}일 (${KR_DAYS[selDate.getDay()]}) 중식</div>
+      <div class="meal-grid">${items.map(m=>`<div class="meal-item">${m}</div>`).join('')}</div>
+      ${row.CAL_INFO?`<div class="kcal">🔥 ${row.CAL_INFO}</div>`:''}
+    </div>`;
+  }catch(e){
+    body.innerHTML=`<div class="meal-empty">⚠️ 불러오기 실패</div>`;
+  }
+}
+
+// ── 모달 ─────────────────────────────────────────────────────────
+function openModal(){
+  const lines=DAYS.map(d=>{
+    const arr=localTT?.[d]||Array(7).fill('');
+    return `${d},${arr.join(',')}`;
+  });
+  document.getElementById('tt-input').value=lines.join('\n');
+  document.getElementById('overlay').classList.add('on');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('on'); }
+function saveModal(){
+  const obj={};
+  document.getElementById('tt-input').value.trim().split('\n').forEach(line=>{
+    const parts=line.split(','); const day=parts[0].trim();
+    if(DAYS.includes(day)){
+      obj[day]=parts.slice(1).map(s=>s.trim());
+      while(obj[day].length<7) obj[day].push('');
+    }
+  });
+  localTT=obj; localStorage.setItem('tt13',JSON.stringify(obj));
+  closeModal(); renderClasses();
+}
+document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+// ── 초기화 ───────────────────────────────────────────────────────
+renderTTCal();
+renderClasses();
+fetchTTWeek();
+renderMealCal();
+renderMeal();
+</script>
+</body>
+</html>
