@@ -9,7 +9,7 @@
 :root{
   --bg:#0e1117;--card:#161b27;--card2:#1c2236;--border:#252d42;
   --blue:#4f8cff;--cyan:#00d4ff;--gold:#ffd166;--purple:#a78bfa;
-  --text:#e8ecf5;--dim:#6b7a99;--r:10px;--max:640px;
+  --text:#e8ecf5;--dim:#6b7a99;--r:10px;--max:780px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;}
@@ -79,6 +79,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .special-bar.yaja{background:rgba(79,140,255,.07);border:1px solid rgba(79,140,255,.2);color:var(--blue);}
 .special-bar.done{opacity:.4;}
 .special-remain{margin-left:auto;font-family:'Space Mono',monospace;font-size:10px;opacity:.7;}
+.now-remain-inline{font-family:'Space Mono',monospace;font-size:10px;color:var(--cyan);margin-left:4px;}
+.special-bar.break-now{background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.2);color:var(--cyan);}
+.special-bar.break-upcoming{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);color:var(--dim);font-size:11px;}
+.special-bar.end-bar{background:transparent;border:1px dashed var(--border);color:var(--dim);font-size:11px;}
 .cl-loading,.cl-empty{text-align:center;padding:24px;color:var(--dim);font-size:13px;}
 .spinner{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 8px;}
 /* 급식 */
@@ -315,90 +319,127 @@ function renderClasses(){
   if(wd<1||wd>5){list.innerHTML=`<div class="cl-empty">📅 주말은 수업 없음</div>`;return;}
   const rawSubjects=getTTForDate(selDate);
   const isToday=sameDay(selDate,today);
-  const hm=new Date().getHours()*60+new Date().getMinutes();
+  const now=new Date();
+  const hms=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
 
   if(rawSubjects.every(s=>!s)){
     list.innerHTML=`<div class="cl-loading"><div class="spinner"></div>나이스에서 불러오는 중...<br><small style="font-size:10px;display:block;margin-top:4px;color:var(--dim)">없으면 ✏️ 버튼으로 직접 입력</small></div>`;
     return;
   }
 
-  // '-' 또는 빈 과목은 제거, 남은 것만 순서대로 PERIODS 시간 재배치
   const validSubs=rawSubjects.filter(s=>s&&s.trim()!=='-'&&s.trim()!=='—');
-  // 교시별 실제 데이터: {num(표시번호), sub, period(시간)}
-  // 점심 기준(4교시 이후): 4교시까지는 PERIODS[0~3], 이후는 PERIODS[4~6]
-  // 단 validSubs 개수에 따라 점심 끼는 위치 결정
-  // → 앞 4개까지는 오전(PERIODS[0~3]), 나머지는 오후(PERIODS[4~])
   const classes=validSubs.map((sub,idx)=>({
-    num: idx+1,
-    sub,
-    period: PERIODS[idx] || PERIODS[PERIODS.length-1],
-    isAfterLunch: idx>=4,
+    num:idx+1, sub,
+    period:PERIODS[idx]||PERIODS[PERIODS.length-1],
+    isAfterLunch:idx>=4,
   }));
+  const lastPeriodIdx=validSubs.length-1;
+  const hasAfternoon=classes.some(c=>c.isAfterLunch);
+
+  const T={
+    JOMYE_S: toMin('08:20')*60,
+    JOMYE_E: toMin('08:40')*60,
+    LUNCH_S:  toMin(LUNCH_S)*60,
+    LUNCH_E:  toMin(LUNCH_E)*60,
+    AFTER_S:  toMin(AFTER_S)*60,
+    AFTER_E:  toMin(AFTER_E)*60,
+    YAJA_S:   toMin(YAJA_S)*60,
+    YAJA_E:   toMin(YAJA_E)*60,
+  };
+  const PS=classes.map(c=>({s:toMin(c.period.s)*60, e:toMin(c.period.e)*60}));
 
   list.innerHTML='';
+  const doneItems=[], activeItems=[];
 
-  const doneItems=[],activeItems=[];
+  // 오늘이면 현재 상태인 특수 항목 하나만 맨 위에 삽입
+  if(isToday){
+    // 등교 중
+    if(hms<T.JOMYE_S){
+      activeItems.push({type:'now-only',cls:'special-bar after',icon:'☀️',label:'등교',time:`~08:20`,remain:Math.ceil((T.JOMYE_S-hms)/60)});
+    }
+    // 조례 중
+    else if(hms>=T.JOMYE_S&&hms<T.JOMYE_E){
+      activeItems.push({type:'now-only',cls:'special-bar after',icon:'📋',label:'조례',time:'08:20~08:40',remain:Math.ceil((T.JOMYE_E-hms)/60)});
+    }
+    // 쉬는시간 체크 (교시 사이)
+    else {
+      for(let idx=0;idx<classes.length-1;idx++){
+        const breakS=PS[idx].e, breakE=PS[idx+1].s;
+        // 점심 구간은 건너뜀
+        if(idx===3&&hasAfternoon) continue;
+        if(hms>=breakS&&hms<breakE){
+          activeItems.push({type:'now-only',cls:'special-bar break-now',icon:'🔔',label:'쉬는시간',time:`${classes[idx].period.e}~${classes[idx+1].period.s}`,remain:Math.ceil((breakE-hms)/60)});
+          break;
+        }
+      }
+    }
+    // 일과 끝
+    const lastEnd=lastPeriodIdx>=6?T.YAJA_E:PS[PS.length-1]?.e||0;
+    if(hms>=lastEnd&&lastEnd>0){
+      activeItems.push({type:'now-only',cls:'special-bar end-bar',icon:'🏠',label:'일과 끝',time:'',remain:null});
+    }
+  }
+
+  // 교시 + 점심 + 오후수업 + 야자
   classes.forEach((c,idx)=>{
-    const s=toMin(c.period.s),e=toMin(c.period.e);
-    const isNow=isToday&&hm>=s&&hm<e,isDone=isToday&&hm>=e;
-    if(isDone)doneItems.push({...c,idx});
-    else activeItems.push({...c,idx,isNow});
+    const ps=PS[idx];
+    // 점심 (5교시 앞)
+    if(idx===4&&hasAfternoon){
+      const isDone=isToday&&hms>=T.LUNCH_E;
+      const isNow=isToday&&hms>=T.LUNCH_S&&hms<T.LUNCH_E;
+      if(isDone) doneItems.push({type:'special',icon:'🍚',label:'점심',time:`${LUNCH_S}~${LUNCH_E}`});
+      else activeItems.push({type:'special',cls:'special-bar lunch',icon:'🍚',label:'점심',time:`${LUNCH_S}~${LUNCH_E}`,remain:isNow?Math.ceil((T.LUNCH_E-hms)/60):null,isNow});
+    }
+    // 교시
+    const isDone=isToday&&hms>=ps.e;
+    const isNow=isToday&&hms>=ps.s&&hms<ps.e;
+    if(isDone) doneItems.push({type:'cls',num:c.num,sub:c.sub,period:c.period});
+    else activeItems.push({type:'cls',num:c.num,sub:c.sub,period:c.period,isNow,remain:isNow?Math.ceil((ps.e-hms)/60):null});
   });
 
-  // 지나간 수업 묶음
+  // 오후수업 + 야자
+  if(lastPeriodIdx>=6){
+    const isDoneA=isToday&&hms>=T.AFTER_E, isNowA=isToday&&hms>=T.AFTER_S&&hms<T.AFTER_E;
+    if(isDoneA) doneItems.push({type:'special',icon:'📚',label:'오후수업',time:`${AFTER_S}~${AFTER_E}`});
+    else activeItems.push({type:'special',cls:'special-bar after',icon:'📚',label:'오후수업',time:`${AFTER_S}~${AFTER_E}`,remain:isNowA?Math.ceil((T.AFTER_E-hms)/60):null,isNow:isNowA});
+    const isDoneY=isToday&&hms>=T.YAJA_E, isNowY=isToday&&hms>=T.YAJA_S&&hms<T.YAJA_E;
+    if(isDoneY) doneItems.push({type:'special',icon:'🌙',label:'야자',time:`${YAJA_S}~${YAJA_E}`});
+    else activeItems.push({type:'special',cls:'special-bar yaja',icon:'🌙',label:'야자',time:`${YAJA_S}~${YAJA_E}`,remain:isNowY?Math.ceil((T.YAJA_E-hms)/60):null,isNow:isNowY});
+  }
+
+  // ── DOM 렌더 ──
   if(doneItems.length>0){
     const group=document.createElement('div');
     group.className='cl-done-group'+(doneOpen?' open':'');
-    group.innerHTML=`<span class="cl-done-label">✅ 지나간 수업 ${doneItems.length}개</span><span class="cl-done-arrow">▼</span>`;
+    const doneCls=doneItems.filter(d=>d.type==='cls').length;
+    group.innerHTML=`<span class="cl-done-label">✅ 지나간 항목 ${doneItems.length}개${doneCls>0?` (수업 ${doneCls}개)`:''}</span><span class="cl-done-arrow">▼</span>`;
     const wrap=document.createElement('div');wrap.className='cl-done-items'+(doneOpen?' open':'');
-    doneItems.forEach(c=>{
-      const cl=document.createElement('div');cl.className='cl done-item';
-      cl.innerHTML=`<span class="cl-num">${c.num}</span><span class="cl-name">${c.sub}</span><span class="cl-time">${c.period.s}~${c.period.e}</span>`;
-      wrap.appendChild(cl);
+    doneItems.forEach(d=>{
+      if(d.type==='cls'){
+        const cl=document.createElement('div');cl.className='cl done-item';
+        cl.innerHTML=`<span class="cl-num">${d.num}</span><span class="cl-name">${d.sub}</span><span class="cl-time">${d.period.s}~${d.period.e}</span>`;
+        wrap.appendChild(cl);
+      } else {
+        const sb=document.createElement('div');sb.className='special-bar done';
+        sb.innerHTML=`<span>${d.icon} ${d.label}</span><span style="font-size:9px;opacity:.6">${d.time}</span>`;
+        wrap.appendChild(sb);
+      }
     });
     group.onclick=()=>{doneOpen=!doneOpen;group.classList.toggle('open',doneOpen);wrap.classList.toggle('open',doneOpen);};
     list.appendChild(group);list.appendChild(wrap);
   }
 
-  const lunchDone=isToday&&hm>=toMin(LUNCH_E),lunchNow=isToday&&hm>=toMin(LUNCH_S)&&hm<toMin(LUNCH_E);
-  const afterDone=isToday&&hm>=toMin(AFTER_E),afterNow=isToday&&hm>=toMin(AFTER_S)&&hm<toMin(AFTER_E);
-  const yajaDone=isToday&&hm>=toMin(YAJA_E),yajaNow=isToday&&hm>=toMin(YAJA_S)&&hm<toMin(YAJA_E);
-
-  // 점심이 필요한지: 오전 수업과 오후 수업이 모두 있거나, 오후 수업이 있으면 표시
-  const hasAfternoon=classes.some(c=>c.isAfterLunch);
-  let lunchInserted=false;
-
-  activeItems.forEach(c=>{
-    // 첫 오후 교시 앞에 점심 삽입
-    if(c.isAfterLunch&&!lunchInserted&&hasAfternoon){
-      lunchInserted=true;
-      const lb=document.createElement('div');lb.className='special-bar lunch'+(lunchDone?' done':'');
-      lb.innerHTML=`<span>🍚 점심</span><span style="font-size:9px;opacity:.6">${LUNCH_S}~${LUNCH_E}</span>${lunchNow?`<span class="special-remain">${toMin(LUNCH_E)-hm}분</span>`:''}`;
-      list.appendChild(lb);
+  activeItems.forEach(a=>{
+    if(a.type==='cls'){
+      const cl=document.createElement('div');cl.className='cl'+(a.isNow?' now':'');
+      cl.innerHTML=`<span class="cl-num">${a.num}</span><span class="cl-name">${a.sub}</span>${a.isNow?'<span class="now-tag">수업 중</span>':''}<span class="cl-time">${a.period.s}~${a.period.e}</span>${a.remain!==null?`<span class="now-remain-inline">${a.remain}분</span>`:''}`;
+      list.appendChild(cl);
+    } else {
+      const sb=document.createElement('div');sb.className=a.cls||'special-bar';
+      sb.innerHTML=`<span>${a.icon} ${a.label}</span><span style="font-size:9px;opacity:.6">${a.time}</span>${a.remain!==null?`<span class="special-remain">${a.remain}분</span>`:''}`;
+      list.appendChild(sb);
     }
-    const cl=document.createElement('div');cl.className='cl'+(c.isNow?' now':'');
-    cl.innerHTML=`<span class="cl-num">${c.num}</span><span class="cl-name">${c.sub}</span>${c.isNow?'<span class="now-tag">수업 중</span>':''}<span class="cl-time">${c.period.s}~${c.period.e}</span>`;
-    list.appendChild(cl);
   });
-
-  // 점심이 activeItems에서 삽입 안 됐는데 전체 지나간 경우 (lunchDone)
-  if(hasAfternoon&&!lunchInserted){
-    const lb=document.createElement('div');lb.className='special-bar lunch done';
-    lb.innerHTML=`<span>🍚 점심</span><span style="font-size:9px;opacity:.6">${LUNCH_S}~${LUNCH_E}</span>`;
-    // doneItems 다음에 삽입 - 이미 done 그룹 안에 있으므로 여기서는 생략
-  }
-
-  // 마지막 교시가 7교시(PERIODS[6])에 해당할 때만 오후수업+야자 표시
-  const lastClass=classes[classes.length-1];
-  const lastPeriodIdx=validSubs.length-1;
-  if(lastPeriodIdx>=6){
-    const ab=document.createElement('div');ab.className='special-bar after'+(afterDone?' done':'');
-    ab.innerHTML=`<span>📚 오후수업</span><span style="font-size:9px;opacity:.6">${AFTER_S}~${AFTER_E}</span>${afterNow?`<span class="special-remain">${toMin(AFTER_E)-hm}분</span>`:''}`;
-    list.appendChild(ab);
-    const yb=document.createElement('div');yb.className='special-bar yaja'+(yajaDone?' done':'');
-    yb.innerHTML=`<span>🌙 야자</span><span style="font-size:9px;opacity:.6">${YAJA_S}~${YAJA_E}</span>${yajaNow?`<span class="special-remain">${toMin(YAJA_E)-hm}분</span>`:''}`;
-    list.appendChild(yb);
-  }
 }
 
 // 팝업 캘린더
@@ -472,6 +513,8 @@ document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.
 
 renderTTCal();renderClasses();fetchTTWeek();
 updateMealDate();renderMeal();
+// 시간표 실시간 업데이트 (오늘 볼 때만 매초)
+setInterval(()=>{ if(sameDay(selDate,today)) renderClasses(); },1000);
 </script>
 </body>
 </html>
