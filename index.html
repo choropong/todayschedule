@@ -262,7 +262,7 @@ function updateNowBar(){
   }
   const end7=toMin(PERIODS[6].e);
   if(hm>=end7&&hm<toMin(AFTER_S)){subj.textContent='🔔 쉬는 시간';rem.textContent=`${toMin(AFTER_S)-hm}분 후 오후수업`;return;}
-  subj.textContent=hm<toMin(PERIODS[0].s)?'등교 전 ☀️':'하교 🎒';rem.textContent='';
+  subj.textContent=hm<toMin(PERIODS[0].s)?'수업 시작 전 ☀️':'하교 🎒';rem.textContent='';
 }
 
 function goTab(id,el){
