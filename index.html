@@ -86,6 +86,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .now-remain-inline{font-family:'Space Mono',monospace;font-size:10px;color:var(--cyan);}
 .special-wrap{display:flex;flex-direction:column;}
 .special-bar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;}
+.special-right{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0;}
 .special-bar.lunch{background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);color:var(--gold);}
 .special-bar.after{background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.2);color:var(--purple);}
 .special-bar.yaja{background:rgba(79,140,255,.07);border:1px solid rgba(79,140,255,.2);color:var(--blue);}
@@ -93,7 +94,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .special-bar.soft{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);color:var(--dim);font-size:11px;}
 .special-bar.end-bar{background:transparent;border:1px dashed var(--border);color:var(--dim);font-size:11px;}
 .special-bar.done{opacity:.4;}
-.special-remain{margin-left:auto;font-family:'Space Mono',monospace;font-size:10px;opacity:.7;}
+.special-remain{font-family:'Space Mono',monospace;font-size:10px;opacity:.7;}
 .special-wrap.has-memo-open .special-bar,
 .special-wrap.has-preview .special-bar{border-radius:8px 8px 0 0!important;}
 .memo-btn{background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:5px;font-size:11px;opacity:.3;transition:all .15s;flex-shrink:0;line-height:1;}
@@ -444,7 +445,7 @@ async function fetchTTWeek(){
 
 // ── 수업 카드 생성 ──
 function makeClassCard(num,sub,period,opts={}){
-  const {isNow=false,isDone=false,remain=null,maxSubW=0}=opts;
+  const {isNow=false,isDone=false,remain=null,maxSubW=0,_endSec=0}=opts;
   const clWrap=document.createElement('div'); clWrap.className='cl-wrap';
   const teacher=teacherMap[sub]||'';
   const existMemo=getMemo(`cls_${num}`,sub);
@@ -453,7 +454,6 @@ function makeClassCard(num,sub,period,opts={}){
 
   let infoHtml;
   if(teacher){
-    // 과목명 뒤에 픽셀 패딩 삽입해서 교사명 세로 정렬
     const subW=measureW(sub);
     const pad=Math.max(0,maxSubW-subW);
     infoHtml=`<span class="cl-info"><span class="cl-name">${escHtml(sub)}</span><span style="display:inline-block;width:${pad.toFixed(1)}px;flex-shrink:0"></span><span class="cl-teacher">&nbsp;${escHtml(teacher)}</span></span>`;
@@ -461,7 +461,7 @@ function makeClassCard(num,sub,period,opts={}){
     infoHtml=`<span class="cl-info"><span class="cl-name">${escHtml(sub)}</span></span>`;
   }
 
-  cl.innerHTML=`<span class="cl-num">${num}</span>${infoHtml}<span class="cl-right">${isNow?'<span class="now-tag">수업 중</span>':''}<span class="cl-time">${period.s}~${period.e}</span>${remain!=null?`<span class="now-remain-inline">${remain}분</span>`:''}</span>`;
+  cl.innerHTML=`<span class="cl-num">${num}</span>${infoHtml}<span class="cl-right">${isNow?'<span class="now-tag">수업 중</span>':''}<span class="cl-time">${period.s}~${period.e}</span>${remain!=null?`<span class="now-remain-inline" data-end="${_endSec}">${remain}분</span>`:''}</span>`;
   clWrap.appendChild(cl);
   createMemoUI(`cls_${num}`,cl,clWrap,sub);
   return clWrap;
@@ -514,28 +514,28 @@ function renderClasses(){
   if(isToday){
     // 수업 시작 전
     if(hms<T.JOMYE_S){
-      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'☀️',label:'수업 시작 전',time:`~${JOMYE_S}`,remain:Math.ceil((T.JOMYE_S-hms)/60),itemKey:'pre'});
+      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'☀️',label:'수업 시작 전',time:`~${JOMYE_S}`,remain:Math.ceil((T.JOMYE_S-hms)/60),itemKey:'pre',_endSec:T.JOMYE_S});
     }
     // 조례
     if(hms>=T.JOMYE_S&&hms<T.JOMYE_E){
-      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'📋',label:'조례',time:`${JOMYE_S}~${JOMYE_E}`,remain:Math.ceil((T.JOMYE_E-hms)/60),itemKey:'jomye'});
+      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'📋',label:'조례',time:`${JOMYE_S}~${JOMYE_E}`,remain:Math.ceil((T.JOMYE_E-hms)/60),itemKey:'jomye',_endSec:T.JOMYE_E});
     }
     // 쉬는시간 (교시 사이, 점심 전 제외)
     for(let i=0;i<classes.length-1;i++){
       if(i===3) continue; // 점심으로 대체
       const bS=PS[i].e, bE=PS[i+1].s;
       if(hms>=bS&&hms<bE){
-        activeItems.push({type:'now-only',cls:'special-bar break-now',icon:'🔔',label:'쉬는시간',time:`${classes[i].period.e}~${classes[i+1].period.s}`,remain:Math.ceil((bE-hms)/60),itemKey:`break_${i+1}`});
+        activeItems.push({type:'now-only',cls:'special-bar break-now',icon:'🔔',label:'쉬는시간',time:`${classes[i].period.e}~${classes[i+1].period.s}`,remain:Math.ceil((bE-hms)/60),itemKey:`break_${i+1}`,_endSec:bE});
         break;
       }
     }
     // 종례 (진행 중)
     if(hms>=T.JONRYE_S&&hms<T.JONRYE_E){
-      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'📋',label:'종례',time:`${JONRYE_S}~${JONRYE_E}`,remain:Math.ceil((T.JONRYE_E-hms)/60),itemKey:'jonrye'});
+      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'📋',label:'종례',time:`${JONRYE_S}~${JONRYE_E}`,remain:Math.ceil((T.JONRYE_E-hms)/60),itemKey:'jonrye',_endSec:T.JONRYE_E});
     }
     // 하교 (진행 중)
     if(hms>=T.HAHGYO_S&&hms<T.HAHGYO_E){
-      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'🎒',label:'하교',time:`${HAHGYO_S}~${HAHGYO_E}`,remain:Math.ceil((T.HAHGYO_E-hms)/60),itemKey:'hahgyo'});
+      activeItems.push({type:'now-only',cls:'special-bar soft',icon:'🎒',label:'하교',time:`${HAHGYO_S}~${HAHGYO_E}`,remain:Math.ceil((T.HAHGYO_E-hms)/60),itemKey:'hahgyo',_endSec:T.HAHGYO_E});
     }
     // 일과 끝
     const allEnd=wed?T.HAHGYO_E:T.YAJA_E;
@@ -551,12 +551,12 @@ function renderClasses(){
     if(idx===4){
       const lD=isToday&&hms>=T.LUNCH_E, lN=isToday&&hms>=T.LUNCH_S&&hms<T.LUNCH_E;
       if(lD) doneItems.push({type:'special',icon:'🍚',label:'점심',time:`${LUNCH_S}~${LUNCH_E}`,itemKey:'lunch',cls:'special-bar lunch'});
-      else activeItems.push({type:'special',cls:'special-bar lunch',icon:'🍚',label:'점심',time:`${LUNCH_S}~${LUNCH_E}`,remain:lN?Math.ceil((T.LUNCH_E-hms)/60):null,isNow:lN,itemKey:'lunch'});
+      else activeItems.push({type:'special',cls:'special-bar lunch',icon:'🍚',label:'점심',time:`${LUNCH_S}~${LUNCH_E}`,remain:lN?Math.ceil((T.LUNCH_E-hms)/60):null,isNow:lN,itemKey:'lunch',_endSec:T.LUNCH_E});
     }
     const isDone=isToday&&hms>=ps.e;
     const isNow=isToday&&hms>=ps.s&&hms<ps.e;
     if(isDone) doneItems.push({type:'cls',num:c.num,sub:c.sub,period:c.period});
-    else activeItems.push({type:'cls',num:c.num,sub:c.sub,period:c.period,isNow,remain:isNow?Math.ceil((ps.e-hms)/60):null});
+    else activeItems.push({type:'cls',num:c.num,sub:c.sub,period:c.period,isNow,remain:isNow?Math.ceil((ps.e-hms)/60):null,_endSec:ps.e});
   });
 
   // ─ 종례/하교 done 처리 (오늘만) ─
@@ -569,10 +569,10 @@ function renderClasses(){
   if(!wed){
     const aD=isToday&&hms>=T.AFTER_E, aN=isToday&&hms>=T.AFTER_S&&hms<T.AFTER_E;
     if(aD) doneItems.push({type:'special',icon:'📚',label:'오후수업',time:`${AFTER_S}~${AFTER_E}`,itemKey:'after',cls:'special-bar after'});
-    else activeItems.push({type:'special',cls:'special-bar after',icon:'📚',label:'오후수업',time:`${AFTER_S}~${AFTER_E}`,remain:aN?Math.ceil((T.AFTER_E-hms)/60):null,isNow:aN,itemKey:'after'});
+    else activeItems.push({type:'special',cls:'special-bar after',icon:'📚',label:'오후수업',time:`${AFTER_S}~${AFTER_E}`,remain:aN?Math.ceil((T.AFTER_E-hms)/60):null,isNow:aN,itemKey:'after',_endSec:T.AFTER_E});
     const yD=isToday&&hms>=T.YAJA_E, yN=isToday&&hms>=T.YAJA_S&&hms<T.YAJA_E;
     if(yD) doneItems.push({type:'special',icon:'🌙',label:'야자',time:`${YAJA_S}~${YAJA_E}`,itemKey:'yaja',cls:'special-bar yaja'});
-    else activeItems.push({type:'special',cls:'special-bar yaja',icon:'🌙',label:'야자',time:`${YAJA_S}~${YAJA_E}`,remain:yN?Math.ceil((T.YAJA_E-hms)/60):null,isNow:yN,itemKey:'yaja'});
+    else activeItems.push({type:'special',cls:'special-bar yaja',icon:'🌙',label:'야자',time:`${YAJA_S}~${YAJA_E}`,remain:yN?Math.ceil((T.YAJA_E-hms)/60):null,isNow:yN,itemKey:'yaja',_endSec:T.YAJA_E});
   }
 
   // ── DOM 렌더 ──
@@ -584,12 +584,14 @@ function renderClasses(){
     const wrap=document.createElement('div'); wrap.className='cl-done-items'+(doneOpen?' open':'');
     doneItems.forEach(d=>{
       if(d.type==='cls'){
-        wrap.appendChild(makeClassCard(d.num,d.sub,d.period,{isDone:true,maxSubW}));
+        wrap.appendChild(makeClassCard(d.num,d.sub,d.period,{isDone:true,maxSubW,_endSec:0}));
       } else {
         const sw=document.createElement('div'); sw.className='special-wrap';
         const sb=document.createElement('div'); sb.className=(d.cls||'special-bar')+' done';
-        sb.innerHTML=`<span>${d.icon} ${d.label}</span><span style="font-size:9px;opacity:.6;margin-left:auto">${d.time}</span>`;
-        sw.appendChild(sb); createMemoUI(d.itemKey,sb,sw,null); wrap.appendChild(sw);
+        sb.innerHTML=`<span>${d.icon} ${d.label}</span><span class="special-right"><span style="font-size:9px;opacity:.6">${d.time}</span></span>`;
+        sw.appendChild(sb);
+        const rightEl=sb.querySelector('.special-right');
+        createMemoUI(d.itemKey,rightEl,sw,null); wrap.appendChild(sw);
       }
     });
     group.onclick=e=>{ if(e.target.closest('.memo-btn,.memo-area')) return; doneOpen=!doneOpen; group.classList.toggle('open',doneOpen); wrap.classList.toggle('open',doneOpen); };
@@ -598,12 +600,14 @@ function renderClasses(){
 
   activeItems.forEach(a=>{
     if(a.type==='cls'){
-      list.appendChild(makeClassCard(a.num,a.sub,a.period,{isNow:a.isNow,remain:a.remain,maxSubW}));
+      list.appendChild(makeClassCard(a.num,a.sub,a.period,{isNow:a.isNow,remain:a.remain,maxSubW,_endSec:a._endSec||0}));
     } else {
       const sw=document.createElement('div'); sw.className='special-wrap';
       const sb=document.createElement('div'); sb.className=a.cls||'special-bar';
-      sb.innerHTML=`<span>${a.icon} ${a.label}</span><span style="font-size:9px;opacity:.6">${a.time}</span>${a.remain!=null?`<span class="special-remain">${a.remain}분</span>`:''}`;
-      sw.appendChild(sb); createMemoUI(a.itemKey,sb,sw,null); list.appendChild(sw);
+      sb.innerHTML=`<span>${a.icon} ${a.label}</span><span class="special-right"><span style="font-size:9px;opacity:.6">${a.time}</span>${a.remain!=null?`<span class="special-remain" data-end="${a._endSec||0}">${a.remain}분</span>`:''}</span>`;
+      sw.appendChild(sb);
+      const rightEl=sb.querySelector('.special-right');
+      createMemoUI(a.itemKey,rightEl,sw,null); list.appendChild(sw);
     }
   });
 }
@@ -712,7 +716,40 @@ document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===e
 // ── 초기화 ──
 renderTTCal(); renderClasses(); fetchTTWeek();
 updateMealDate(); renderMeal();
-setInterval(()=>{ if(sameDay(selDate,today)) renderClasses(); },1000);
+
+// 매초 타이머: 메모 열림 상태 보존하면서 카운트다운 + 상태 전환만 처리
+let _lastRenderSig='';
+function tickClasses(){
+  if(!sameDay(selDate,today)) return;
+  const n=new Date();
+  const hms=n.getHours()*3600+n.getMinutes()*60+n.getSeconds();
+
+  // 현재 어떤 "구간"인지 시그니처 (분 단위)
+  const sig=`${n.getHours()}:${n.getMinutes()}`;
+  // 상태 변화 감지: 매 분 첫 틱 or 처음 로드 후 변화
+  // → 구간이 바뀌었으면 전체 재렌더
+  if(sig!==_lastRenderSig){
+    _lastRenderSig=sig;
+    // 메모가 열려있으면 재렌더 건너뜀 (열린 메모 닫히는 버그 방지)
+    const memoOpen=document.querySelector('.memo-area.open');
+    if(!memoOpen) renderClasses();
+  }
+
+  // 카운트다운 숫자만 업데이트 (DOM 재생성 없이)
+  document.querySelectorAll('.special-remain[data-end]').forEach(el=>{
+    const endSec=parseInt(el.dataset.end);
+    if(!endSec) return;
+    const r=Math.ceil((endSec-hms)/60);
+    if(r>0) el.textContent=`${r}분`;
+  });
+  document.querySelectorAll('.now-remain-inline[data-end]').forEach(el=>{
+    const endSec=parseInt(el.dataset.end);
+    if(!endSec) return;
+    const r=Math.ceil((endSec-hms)/60);
+    if(r>0) el.textContent=`${r}분`;
+  });
+}
+setInterval(tickClasses,1000);
 </script>
 </body>
 </html>
