@@ -429,7 +429,7 @@ function ttGoToday(){ selDate=new Date(today); ttBaseMonday=getMonday(today); do
 function getTTForDate(d){
   const wd=d.getDay(); if(wd<1||wd>5) return Array(7).fill('');
   const dayKey=DAYS[wd-1];
-  if(localTT&&localTT[dayKey]) return localTT[dayKey];
+  if(localTT&&localTT[dayKey]&&localTT[dayKey].some(s=>s)) return localTT[dayKey];
   const key=fmt(d);
   if(ttCache[key]){ const arr=Array(7).fill(''); ttCache[key].forEach(r=>{ const p=parseInt(r.PERIO)-1; if(p>=0&&p<7) arr[p]=r.ITRT_CNTNT; }); return arr; }
   return Array(7).fill('');
@@ -705,8 +705,8 @@ function openModal(){
 function closeModal(){ document.getElementById('overlay').classList.remove('on'); }
 function saveModal(){
   const obj={};
-  document.getElementById('tt-input').value.trim().split('\n').forEach(line=>{ const parts=line.split(','); const day=parts[0].trim(); if(DAYS.includes(day)){ obj[day]=parts.slice(1).map(s=>s.trim()); while(obj[day].length<7) obj[day].push(''); } });
-  localTT=obj; localStorage.setItem('tt13',JSON.stringify(obj));
+  document.getElementById('tt-input').value.trim().split('\n').forEach(line=>{ const parts=line.split(','); const day=parts[0].trim(); if(DAYS.includes(day)){ const subs=parts.slice(1).map(s=>s.trim()); while(subs.length<7) subs.push(''); if(subs.some(s=>s)) obj[day]=subs; } });
+  localTT=Object.keys(obj).length>0?obj:null; localStorage.setItem('tt13',JSON.stringify(localTT));
   document.querySelectorAll('.teacher-input').forEach(inp=>{ const sub=inp.dataset.sub; const val=inp.value.trim(); if(val) teacherMap[sub]=val; else delete teacherMap[sub]; });
   localStorage.setItem('teacherMap',JSON.stringify(teacherMap));
   closeModal(); renderClasses();
