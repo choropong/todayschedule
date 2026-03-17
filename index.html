@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>today</title>
+<link rel="apple-touch-icon" sizes="180x180" href="favicon_io/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon_io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png">
+<link rel="manifest" href="favicon_io/site.webmanifest">
+<link rel="shortcut icon" href="favicon_io/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -279,7 +284,15 @@ let selDate=new Date(today);
 let ttBaseMonday=getMonday(today);
 let popViewDate=new Date(today);
 let ttCache={}, localTT=JSON.parse(localStorage.getItem('tt13')||'null');
-let teacherMap=JSON.parse(localStorage.getItem('teacherMap')||'{}');
+let teacherMap=JSON.parse(localStorage.getItem('teacherMap'));
+if(!teacherMap || Object.keys(teacherMap).length === 0){
+  teacherMap = {
+    '공통국어1':'김영숙', '공통수학1':'김현태', '공통영어1':'홍성출',
+    '과학탐구실험1':'임성진', '동아리활동':'개별', '음악':'강예솔',
+    '진로활동':'임종근', '체육1':'서월산', '한국사':'윤용철', '한문':'천부성'
+  };
+  localStorage.setItem('teacherMap',JSON.stringify(teacherMap));
+}
 let doneOpen=false, calPopupOpen=false;
 
 // ── 메모 ──
@@ -447,7 +460,19 @@ async function fetchTTWeek(){
 function makeClassCard(num,sub,period,opts={}){
   const {isNow=false,isDone=false,remain=null,maxSubW=0,_endSec=0}=opts;
   const clWrap=document.createElement('div'); clWrap.className='cl-wrap';
-  const teacher=teacherMap[sub]||'';
+  
+  let teacher=teacherMap[sub]||'';
+  if(!teacher){
+    const wd = selDate.getDay();
+    if(sub.includes('통합과학1')){
+      if(wd===1||wd===5) teacher='설희';
+      else if(wd===2||wd===3) teacher='정하진';
+    }else if(sub.includes('통합사회1')){
+      if(wd===4) teacher='송정은';
+      else teacher='신현서';
+    }
+  }
+
   const existMemo=getMemo(`cls_${num}`,sub);
   const cl=document.createElement('div');
   cl.className='cl'+(isNow?' now':'')+(isDone?' done-item':'')+(existMemo?' has-memo':'');
@@ -504,7 +529,14 @@ function renderClasses(){
   const PS=classes.map(c=>({s:toSec(c.period.s),e:toSec(c.period.e)}));
 
   // 교사가 있는 카드 정렬을 위한 최대 과목명 픽셀 너비
-  const hasAnyTeacher=classes.some(c=>teacherMap[c.sub]);
+  const hasAnyTeacher=classes.some(c => {
+    let t = teacherMap[c.sub]||'';
+    if(!t) {
+      if(c.sub.includes('통합과학1') && [1,2,3,5].includes(wd)) return true;
+      if(c.sub.includes('통합사회1')) return true;
+    }
+    return t;
+  });
   const maxSubW=hasAnyTeacher ? Math.max(...classes.map(c=>measureW(c.sub))) : 0;
 
   list.innerHTML='';
